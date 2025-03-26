@@ -1,22 +1,22 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
-import { UserResponse, UpdateUserProfileDto, UserDocument } from './types';
+import { UserResponseDto } from '../users/dto/user-response.dto';
+import { UpdateUserProfileDto } from '../users/dto/update-user-profile.dto';
+import { UserDocument } from './types';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { PasswordService } from './password.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly passwordService: PasswordService,
   ) {}
 
-  private mapUserToResponse(user: UserDocument): UserResponse {
+  private mapUserToResponse(user: UserDocument): UserResponseDto {
     const result = user.toObject();
     return {
       id: result._id.toString(),
@@ -37,18 +37,25 @@ export class AuthService {
   async validateUser(
     email: string,
     password: string,
-  ): Promise<UserResponse | null> {
+  ): Promise<UserResponseDto | null> {
     const user = await this.usersService.findByEmail(email);
     if (user && user.password) {
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      const isPasswordValid = await this.passwordService.compare(
+        password,
+        user.password,
+      );
       if (isPasswordValid) {
-        return this.mapUserToResponse(user);
+        return this.usersService.mapUserToResponse(user);
       }
     }
     return null;
   }
 
-  login(user: UserResponse) {
+  async register(createUserDto: CreateUserDto): Promise<UserResponseDto> {
+    return this.usersService.create(createUserDto);
+  }
+
+  login(user: UserResponseDto): AuthResponseDto {
     const payload = { email: user.email, sub: user.id };
     return {
       access_token: this.jwtService.sign(payload),
@@ -56,27 +63,7 @@ export class AuthService {
     };
   }
 
-  async register(createUserDto: CreateUserDto) {
-    try {
-      const existingUser = await this.usersService.findByEmail(
-        createUserDto.email,
-      );
-      if (existingUser) {
-        throw new ConflictException('User with this email already exists');
-      }
-
-      const user = await this.usersService.create(createUserDto);
-      return this.login(user);
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      console.error('[Auth] Registration error:', error);
-      throw new UnauthorizedException('Registration failed');
-    }
-  }
-
-  async getUserProfile(userId: string): Promise<UserResponse> {
+  async getUserProfile(userId: string): Promise<UserResponseDto> {
     const user = await this.usersService.findById(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -87,7 +74,7 @@ export class AuthService {
   async updateUserProfile(
     userId: string,
     updateData: UpdateUserProfileDto,
-  ): Promise<UserResponse> {
+  ): Promise<UserResponseDto> {
     const user = await this.usersService.update(userId, updateData);
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -95,7 +82,7 @@ export class AuthService {
     return this.mapUserToResponse(user);
   }
 
-  async getUsers(): Promise<UserResponse[]> {
+  async getUsers(): Promise<UserResponseDto[]> {
     const users = await this.usersService.findAll();
     return users.map((user) => this.mapUserToResponse(user));
   }

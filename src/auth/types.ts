@@ -18,27 +18,3 @@ export interface UserDocument extends BaseUserDocument {
     password: string;
   };
 }
-
-export interface UserResponse {
-  id: string;
-  email: string;
-  username: string;
-  fullName: string;
-  avatar: string;
-  bio: string;
-  location: string;
-  followers: string[];
-  following: string[];
-  followersCount: number;
-  followingCount: number;
-  createdAt: string;
-}
-
-export interface UpdateUserProfileDto {
-  email?: string;
-  username?: string;
-  fullName?: string;
-  avatar?: string;
-  bio?: string;
-  location?: string;
-}

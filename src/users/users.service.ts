@@ -2,13 +2,15 @@ import {
   Injectable,
   NotFoundException,
   InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UserResponse } from '../auth/types';
+import { UserResponseDto } from './dto/user-response.dto';
+import { FollowResponseDto } from './dto/follow-response.dto';
+import { PasswordService } from '../auth/password.service';
 
 interface UserObject {
   _id: Types.ObjectId;
@@ -29,9 +31,10 @@ interface UserObject {
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly passwordService: PasswordService,
   ) {}
 
-  mapUserToResponse(user: UserDocument): UserResponse {
+  mapUserToResponse(user: UserDocument): UserResponseDto {
     const result = user.toObject() as UserObject;
     return {
       id: result._id.toString(),
@@ -53,10 +56,12 @@ export class UsersService {
     };
   }
 
-  async create(createUserDto: CreateUserDto): Promise<UserResponse> {
+  async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
     try {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
+      const hashedPassword = await this.passwordService.hash(
+        createUserDto.password,
+      );
+
       const userData = {
         ...createUserDto,
         password: hashedPassword,
@@ -67,7 +72,7 @@ export class UsersService {
       };
       const user = await this.userModel.create(userData);
       return this.mapUserToResponse(user);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[Users] Create user error:', error);
       throw new InternalServerErrorException('Failed to create user');
     }
@@ -85,7 +90,7 @@ export class UsersService {
     return this.userModel.findById(id).exec();
   }
 
-  async getUserProfile(userId: string): Promise<UserResponse> {
+  async getUserProfile(userId: string): Promise<UserResponseDto> {
     const user = await this.userModel.findById(userId).select('-password');
     if (!user) {
       throw new NotFoundException('User not found');
@@ -96,7 +101,7 @@ export class UsersService {
   async updateProfile(
     userId: string,
     updateData: Partial<User>,
-  ): Promise<UserResponse> {
+  ): Promise<UserResponseDto> {
     const user = await this.userModel
       .findByIdAndUpdate(userId, updateData, { new: true })
       .exec();
@@ -122,148 +127,91 @@ export class UsersService {
   async followUser(
     userId: string,
     followerId: string,
-  ): Promise<{ user: UserResponse; follower: UserResponse }> {
-    const user = await this.userModel.findById(userId);
-    const follower = await this.userModel.findById(followerId);
-
-    if (!user || !follower) {
+  ): Promise<FollowResponseDto> {
+    const user = await this.findById(userId);
+    if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const followerObjectId = new Types.ObjectId(followerId);
-    const userObjectId = new Types.ObjectId(userId);
-
-    // Check if already following
-    if (user.followers?.some((id) => id.equals(followerObjectId))) {
-      return {
-        user: this.mapUserToResponse(user),
-        follower: this.mapUserToResponse(follower),
-      };
+    const follower = await this.findById(followerId);
+    if (!follower) {
+      throw new NotFoundException('Follower not found');
     }
 
-    // Ensure followers and following are arrays
-    await Promise.all([
-      this.userModel.updateOne(
-        { _id: userId },
-        {
-          $set: {
-            followers: Array.isArray(user.followers) ? user.followers : [],
-          },
-        },
-      ),
-      this.userModel.updateOne(
-        { _id: followerId },
-        {
-          $set: {
-            following: Array.isArray(follower.following)
-              ? follower.following
-              : [],
-          },
-        },
-      ),
-    ]);
+    if (userId === followerId) {
+      throw new BadRequestException('Cannot follow yourself');
+    }
 
-    // Add followers/following
-    await Promise.all([
-      this.userModel.updateOne(
-        { _id: userId },
-        {
-          $push: { followers: followerObjectId },
-          $inc: { followersCount: 1 },
-        },
-      ),
-      this.userModel.updateOne(
-        { _id: followerId },
-        {
-          $push: { following: userObjectId },
-          $inc: { followingCount: 1 },
-        },
-      ),
-    ]);
+    if (user.followers.includes(new Types.ObjectId(followerId))) {
+      throw new BadRequestException('Already following this user');
+    }
 
-    // Get updated data for both users
-    const [updatedUser, updatedFollower] = await Promise.all([
-      this.getUserProfile(userId),
-      this.getUserProfile(followerId),
-    ]);
+    user.followers.push(new Types.ObjectId(followerId));
+    user.followersCount = user.followers.length;
+
+    follower.following.push(new Types.ObjectId(userId));
+    follower.followingCount = follower.following.length;
+
+    const [updatedUser, updatedFollower] = (await Promise.all([
+      user.save(),
+      follower.save(),
+    ])) as [UserDocument, UserDocument];
 
     return {
-      user: updatedUser,
-      follower: updatedFollower,
+      userId: updatedUser.id,
+      followerId: updatedFollower.id,
+      isFollowing: true,
+      followersCount: updatedUser.followersCount,
+      followingCount: updatedFollower.followingCount,
     };
   }
 
   async unfollowUser(
     userId: string,
     followerId: string,
-  ): Promise<{ user: UserResponse; follower: UserResponse }> {
-    const user = await this.userModel.findById(userId);
-    const follower = await this.userModel.findById(followerId);
-
-    if (!user || !follower) {
+  ): Promise<FollowResponseDto> {
+    const user = await this.findById(userId);
+    if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    const follower = await this.findById(followerId);
+    if (!follower) {
+      throw new NotFoundException('Follower not found');
+    }
+
+    if (userId === followerId) {
+      throw new BadRequestException('Cannot unfollow yourself');
     }
 
     const followerObjectId = new Types.ObjectId(followerId);
     const userObjectId = new Types.ObjectId(userId);
 
-    // Ensure followers and following are arrays
-    await Promise.all([
-      this.userModel.updateOne(
-        { _id: userId },
-        {
-          $set: {
-            followers: Array.isArray(user.followers) ? user.followers : [],
-          },
-        },
-      ),
-      this.userModel.updateOne(
-        { _id: followerId },
-        {
-          $set: {
-            following: Array.isArray(follower.following)
-              ? follower.following
-              : [],
-          },
-        },
-      ),
-    ]);
-
-    // Check if not following
-    if (!user.followers?.some((id) => id.equals(followerObjectId))) {
-      return {
-        user: this.mapUserToResponse(user),
-        follower: this.mapUserToResponse(follower),
-      };
+    if (!user.followers.some((id) => id.equals(followerObjectId))) {
+      throw new BadRequestException('Not following this user');
     }
 
-    // Remove followers/following
-    await Promise.all([
-      this.userModel.updateOne(
-        { _id: userId },
-        {
-          $pull: { followers: followerObjectId },
-          $inc: { followersCount: -1 },
-        },
-      ),
-      this.userModel.updateOne(
-        { _id: followerId },
-        {
-          $pull: { following: userObjectId },
-          $inc: { followingCount: -1 },
-        },
-      ),
-    ]);
+    user.followers = user.followers.filter(
+      (id) => !id.equals(followerObjectId),
+    );
+    user.followersCount = user.followers.length;
 
-    // Get updated data for both users
-    const [updatedUser, updatedFollower] = await Promise.all([
-      this.getUserProfile(userId),
-      this.getUserProfile(followerId),
-    ]);
+    follower.following = follower.following.filter(
+      (id) => !id.equals(userObjectId),
+    );
+    follower.followingCount = follower.following.length;
+
+    const [updatedUser, updatedFollower] = (await Promise.all([
+      user.save(),
+      follower.save(),
+    ])) as [UserDocument, UserDocument];
 
     return {
-      user: updatedUser,
-      follower: updatedFollower,
+      userId: updatedUser.id,
+      followerId: updatedFollower.id,
+      isFollowing: false,
+      followersCount: updatedUser.followersCount,
+      followingCount: updatedFollower.followingCount,
     };
   }
 }
