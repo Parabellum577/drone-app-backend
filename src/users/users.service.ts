@@ -242,4 +242,14 @@ export class UsersService {
       followingCount: updatedFollower.followingCount,
     };
   }
+
+  async checkEmailAvailability(email: string): Promise<boolean> {
+    const user = await this.findByEmail(email);
+    return !user;
+  }
+
+  async checkUsernameAvailability(username: string): Promise<boolean> {
+    const user = await this.findByUsername(username);
+    return !user;
+  }
 }

@@ -4,9 +4,11 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { ServicesModule } from './services/services.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -37,6 +39,7 @@ import { AuthModule } from './auth/auth.module';
     }),
     UsersModule,
     AuthModule,
+    ServicesModule,
   ],
 })
 export class AppModule {}
