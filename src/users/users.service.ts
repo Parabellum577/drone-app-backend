@@ -111,8 +111,24 @@ export class UsersService {
     return this.mapUserToResponse(user);
   }
 
-  async findAll(): Promise<UserDocument[]> {
-    return this.userModel.find().exec();
+  async findAll(filters?: {
+    searchParam?: string;
+    location?: string;
+  }): Promise<UserDocument[]> {
+    const query: Record<string, any> = {};
+
+    if (filters?.searchParam) {
+      query.$or = [
+        { username: { $regex: filters.searchParam, $options: 'i' } },
+        { fullName: { $regex: filters.searchParam, $options: 'i' } },
+      ];
+    }
+
+    if (filters?.location) {
+      query.location = { $regex: filters.location, $options: 'i' };
+    }
+
+    return this.userModel.find(query).exec();
   }
 
   async update(
@@ -122,6 +138,18 @@ export class UsersService {
     return this.userModel
       .findByIdAndUpdate(userId, updateData, { new: true })
       .exec();
+  }
+
+  async recalculateCounters(): Promise<void> {
+    const users = await this.userModel.find().exec();
+
+    await Promise.all(
+      users.map(async (user) => {
+        user.followersCount = user.followers.length;
+        user.followingCount = user.following.length;
+        await user.save();
+      }),
+    );
   }
 
   async followUser(
@@ -152,14 +180,14 @@ export class UsersService {
     follower.following.push(new Types.ObjectId(userId));
     follower.followingCount = follower.following.length;
 
-    const [updatedUser, updatedFollower] = (await Promise.all([
+    const [updatedUser, updatedFollower] = await Promise.all([
       user.save(),
       follower.save(),
-    ])) as [UserDocument, UserDocument];
+    ]);
 
     return {
-      userId: updatedUser.id,
-      followerId: updatedFollower.id,
+      userId: updatedUser._id.toString(),
+      followerId: updatedFollower._id.toString(),
       isFollowing: true,
       followersCount: updatedUser.followersCount,
       followingCount: updatedFollower.followingCount,
@@ -201,14 +229,14 @@ export class UsersService {
     );
     follower.followingCount = follower.following.length;
 
-    const [updatedUser, updatedFollower] = (await Promise.all([
+    const [updatedUser, updatedFollower] = await Promise.all([
       user.save(),
       follower.save(),
-    ])) as [UserDocument, UserDocument];
+    ]);
 
     return {
-      userId: updatedUser.id,
-      followerId: updatedFollower.id,
+      userId: updatedUser._id.toString(),
+      followerId: updatedFollower._id.toString(),
       isFollowing: false,
       followersCount: updatedUser.followersCount,
       followingCount: updatedFollower.followingCount,

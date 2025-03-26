@@ -54,3 +54,13 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.pre('save', function (next) {
+  if (this.followers) {
+    this.followersCount = this.followers.length;
+  }
+  if (this.following) {
+    this.followingCount = this.following.length;
+  }
+  next();
+});

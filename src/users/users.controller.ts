@@ -8,12 +8,14 @@ import {
   UseGuards,
   Request,
   Delete,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -30,19 +32,34 @@ interface RequestWithUser extends Request {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @ApiOperation({ summary: 'Get all users' })
+  @ApiOperation({ summary: 'Get all users except current user' })
   @ApiResponse({
     status: 200,
     description: 'List of all users',
     type: [UserResponseDto],
   })
+  @ApiQuery({
+    name: 'searchParam',
+    required: false,
+    description: 'Search users by username or full name (case-insensitive)',
+  })
+  @ApiQuery({
+    name: 'location',
+    required: false,
+    description: 'Filter users by location (case-insensitive)',
+  })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get()
-  async getUsers(): Promise<UserResponseDto[]> {
-    return this.usersService
-      .findAll()
-      .then((users) =>
-        users.map((user) => this.usersService.mapUserToResponse(user)),
-      );
+  async getUsers(
+    @Request() req: RequestWithUser,
+    @Query('searchParam') searchParam?: string,
+    @Query('location') location?: string,
+  ): Promise<UserResponseDto[]> {
+    const users = await this.usersService.findAll({ searchParam, location });
+    return users
+      .filter((user) => user._id.toString() !== req.user.id)
+      .map((user) => this.usersService.mapUserToResponse(user));
   }
 
   @ApiBearerAuth()
@@ -88,6 +105,18 @@ export class UsersController {
     @Param('userId') userId: string,
   ): Promise<UserResponseDto> {
     return this.usersService.getUserProfile(userId);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Recalculate followers/following counters' })
+  @ApiResponse({
+    status: 200,
+    description: 'Counters recalculated successfully',
+  })
+  @Post('recalculate-counters')
+  async recalculateCounters(): Promise<{ message: string }> {
+    await this.usersService.recalculateCounters();
+    return { message: 'Counters recalculated successfully' };
   }
 
   @ApiBearerAuth()
