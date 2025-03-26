@@ -26,9 +26,9 @@ export class ServiceResponseDto {
 
   @ApiProperty({
     description: 'Service price',
-    example: '60',
+    example: 60,
   })
-  price: string;
+  price: number;
 
   @ApiProperty({
     description: 'Service currency',

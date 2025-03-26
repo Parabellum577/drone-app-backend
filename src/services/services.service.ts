@@ -11,17 +11,27 @@ import { ServiceResponseDto } from './dto/service-response.dto';
 import { UsersService } from '../users/users.service';
 import { FindServicesDto } from './dto/find-services.dto';
 
+interface PriceQuery {
+  $gte?: number;
+  $lte?: number;
+}
+
 interface ServiceQuery {
   title?: { $regex: string; $options: string };
   location?: { $regex: string; $options: string };
-  price?: { $gte?: string; $lte?: string };
+  price?: PriceQuery;
+  $or?: Array<{ location: { $regex: string; $options: string } }>;
+  $and?: Array<{
+    $or?: Array<{ location: { $regex: string; $options: string } }>;
+    price?: PriceQuery;
+  }>;
 }
 
 @Injectable()
 export class ServicesService {
   constructor(
     @InjectModel(Service.name)
-    private readonly serviceModel: Model<ServiceDocument>,
+    public readonly serviceModel: Model<ServiceDocument>,
     private readonly usersService: UsersService,
   ) {}
 
@@ -35,6 +45,7 @@ export class ServicesService {
   ): Promise<ServiceResponseDto> {
     const service = await this.serviceModel.create({
       ...createServiceDto,
+      price: Number(createServiceDto.price),
       serviceId: this.generateServiceId(),
       created_by: new Types.ObjectId(userId),
     });
@@ -50,24 +61,41 @@ export class ServicesService {
     }
 
     if (filters?.location) {
-      query.location = { $regex: filters.location, $options: 'i' };
+      const locationParts = filters.location
+        .split(',')
+        .map((part) => part.trim());
+      query.$or = [
+        { location: { $regex: filters.location, $options: 'i' } },
+        ...locationParts.map((part) => ({
+          location: { $regex: part, $options: 'i' },
+        })),
+      ];
     }
 
     if (filters?.minPrice || filters?.maxPrice) {
-      query.price = {};
+      const priceQuery: PriceQuery = {};
       if (filters.minPrice) {
-        query.price.$gte = filters.minPrice.toString();
+        priceQuery.$gte = filters.minPrice;
       }
       if (filters.maxPrice) {
-        query.price.$lte = filters.maxPrice.toString();
+        priceQuery.$lte = filters.maxPrice;
       }
+      if (Object.keys(priceQuery).length > 0) {
+        query.price = priceQuery;
+      }
+    }
+
+    if (query.$or && query.price) {
+      const locationOr = query.$or;
+      delete query.$or;
+      query.$and = [{ $or: locationOr }, { price: query.price }];
+      delete query.price;
     }
 
     const services = await this.serviceModel
       .find(query)
       .populate('created_by')
       .exec();
-
     return services.map((service) => this.mapServiceToResponse(service));
   }
 

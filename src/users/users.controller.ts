@@ -56,7 +56,8 @@ export class UsersController {
     @Query('searchParam') searchParam?: string,
     @Query('location') location?: string,
   ): Promise<UserResponseDto[]> {
-    const users = await this.usersService.findAll({ searchParam, location });
+    const filters = { searchParam, location };
+    const users = await this.usersService.findAll(filters);
     return users
       .filter((user) => user._id.toString() !== req.user.id)
       .map((user) => this.usersService.mapUserToResponse(user));

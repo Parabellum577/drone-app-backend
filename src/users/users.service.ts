@@ -125,10 +125,19 @@ export class UsersService {
     }
 
     if (filters?.location) {
-      query.location = { $regex: filters.location, $options: 'i' };
+      const locationParts = filters.location
+        .split(',')
+        .map((part) => part.trim());
+      query.$or = [
+        { location: { $regex: filters.location, $options: 'i' } },
+        ...locationParts.map((part) => ({
+          location: { $regex: part, $options: 'i' },
+        })),
+      ];
     }
 
-    return this.userModel.find(query).exec();
+    const users = await this.userModel.find(query).exec();
+    return users;
   }
 
   async update(
@@ -251,5 +260,16 @@ export class UsersService {
   async checkUsernameAvailability(username: string): Promise<boolean> {
     const user = await this.findByUsername(username);
     return !user;
+  }
+
+  async checkLocations(): Promise<void> {
+    const users = await this.userModel
+      .find()
+      .select('username location')
+      .exec();
+    console.log(
+      'All users with locations:',
+      users.map((u) => ({ username: u.username, location: u.location })),
+    );
   }
 }

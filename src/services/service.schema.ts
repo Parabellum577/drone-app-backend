@@ -6,7 +6,7 @@ export interface ServiceDocument extends Document {
   serviceId: string;
   title: string;
   description: string;
-  price: string;
+  price: number;
   currency: string;
   created_by: Types.ObjectId;
   image: string;
@@ -26,8 +26,8 @@ export class Service {
   @Prop({ required: true })
   description: string;
 
-  @Prop({ required: true })
-  price: string;
+  @Prop({ required: true, type: Number })
+  price: number;
 
   @Prop({ required: true, enum: ['EUR', 'USD', 'PLN'] })
   currency: string;
