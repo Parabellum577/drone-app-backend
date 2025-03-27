@@ -102,13 +102,33 @@ export class UsersService {
     userId: string,
     updateData: Partial<User>,
   ): Promise<UserResponseDto> {
-    const user = await this.userModel
-      .findByIdAndUpdate(userId, updateData, { new: true })
-      .exec();
+    const user = await this.userModel.findById(userId).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.mapUserToResponse(user);
+
+    if (updateData.username) {
+      const userWithSameUsername = await this.userModel
+        .findOne({
+          username: updateData.username,
+          _id: { $ne: new Types.ObjectId(userId) },
+        })
+        .exec();
+
+      if (userWithSameUsername) {
+        throw new BadRequestException('Username is already taken');
+      }
+      user.username = updateData.username;
+    }
+
+    if (updateData.fullName !== undefined) user.fullName = updateData.fullName;
+    if (updateData.avatar !== undefined) user.avatar = updateData.avatar;
+    if (updateData.bio !== undefined) user.bio = updateData.bio;
+    if (updateData.location !== undefined) user.location = updateData.location;
+
+    const updatedUser = await user.save();
+
+    return this.mapUserToResponse(updatedUser);
   }
 
   async findAll(filters?: {

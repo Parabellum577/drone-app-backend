@@ -14,6 +14,9 @@ export class UpdateUserProfileDto {
     description: 'Username',
     required: false,
   })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
   username?: string;
 
   @ApiProperty({
