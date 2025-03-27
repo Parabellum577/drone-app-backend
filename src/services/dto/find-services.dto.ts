@@ -1,8 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, Min, Max, IsNumber } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+  IsNumber,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { ServiceCategory } from '../enums/service-category.enum';
+import { PaginationParams } from '../../common/interfaces/pagination.interface';
 
-export class FindServicesDto {
+export class FindServicesDto implements PaginationParams {
   @ApiProperty({
     description: 'Search by title',
     required: false,
@@ -42,4 +51,38 @@ export class FindServicesDto {
   @IsNumber()
   @Max(1000000)
   maxPrice?: number;
+
+  @ApiProperty({
+    description: 'Filter by category',
+    required: false,
+    enum: ServiceCategory,
+    example: ServiceCategory.SERVICE,
+  })
+  @IsOptional()
+  @IsEnum(ServiceCategory)
+  category?: ServiceCategory;
+
+  @ApiProperty({
+    description: 'Number of items per page',
+    minimum: 1,
+    default: 10,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number;
+
+  @ApiProperty({
+    description: 'Number of items to skip',
+    minimum: 0,
+    default: 0,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  offset?: number;
 }

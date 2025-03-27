@@ -9,7 +9,7 @@ export interface UserDocument extends Document {
   fullName?: string;
   avatar?: string;
   bio?: string;
-  location: string;
+  location?: string;
   followers: Types.ObjectId[];
   following: Types.ObjectId[];
   followersCount: number;
@@ -28,8 +28,8 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop({ required: true })
-  location: string;
+  @Prop()
+  location?: string;
 
   @Prop()
   fullName?: string;

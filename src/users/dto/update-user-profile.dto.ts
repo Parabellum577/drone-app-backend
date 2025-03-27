@@ -16,7 +16,7 @@ export class UpdateUserProfileDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(100)
+  @MaxLength(50)
   username?: string;
 
   @ApiProperty({
@@ -26,7 +26,7 @@ export class UpdateUserProfileDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(100)
+  @MaxLength(50)
   fullName?: string;
 
   @ApiProperty({
@@ -45,7 +45,7 @@ export class UpdateUserProfileDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(500)
+  @MaxLength(150)
   bio?: string;
 
   @ApiProperty({
@@ -55,6 +55,6 @@ export class UpdateUserProfileDto {
   })
   @IsString()
   @IsOptional()
-  @MaxLength(100)
+  @MaxLength(70)
   location?: string;
 }

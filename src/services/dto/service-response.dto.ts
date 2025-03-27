@@ -1,4 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ServiceCategory } from '../enums/service-category.enum';
+import { DayOfWeek } from '../enums/day-of-week.enum';
+import { WorkingHours } from '../interfaces/working-hours.interface';
 
 export class ServiceResponseDto {
   @ApiProperty({
@@ -56,6 +59,13 @@ export class ServiceResponseDto {
   image: string;
 
   @ApiProperty({
+    description: 'Service category',
+    enum: ServiceCategory,
+    example: ServiceCategory.SERVICE,
+  })
+  category: ServiceCategory;
+
+  @ApiProperty({
     description: 'Service creation date',
   })
   createdAt: string;
@@ -64,4 +74,50 @@ export class ServiceResponseDto {
     description: 'Service last update date',
   })
   updatedAt: string;
+
+  // EVENT
+  @ApiProperty({
+    description: 'Event start date',
+    example: '2023-12-20',
+    required: false,
+  })
+  startDate?: string;
+
+  @ApiProperty({
+    description: 'Event end date',
+    example: '2023-12-21',
+    required: false,
+  })
+  endDate?: string;
+
+  @ApiProperty({
+    description: 'Event start time',
+    example: '10:00',
+    required: false,
+  })
+  startTime?: string;
+
+  @ApiProperty({
+    description: 'Event end time',
+    example: '18:00',
+    required: false,
+  })
+  endTime?: string;
+
+  // SERVICE
+  @ApiProperty({
+    description: 'Available days of the week',
+    type: [String],
+    enum: DayOfWeek,
+    example: [DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY],
+    required: false,
+  })
+  availableDays?: DayOfWeek[];
+
+  @ApiProperty({
+    description: 'Working hours',
+    example: { from: '09:00', to: '18:00' },
+    required: false,
+  })
+  workingHours?: WorkingHours;
 }
