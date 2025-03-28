@@ -11,6 +11,10 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { FollowResponseDto } from './dto/follow-response.dto';
 import { PasswordService } from '../auth/password.service';
+import {
+  PaginationParams,
+  PaginatedResponse,
+} from '../common/interfaces/pagination.interface';
 
 interface UserObject {
   _id: Types.ObjectId;
@@ -131,10 +135,14 @@ export class UsersService {
     return this.mapUserToResponse(updatedUser);
   }
 
-  async findAll(filters?: {
-    searchParam?: string;
-    location?: string;
-  }): Promise<UserDocument[]> {
+  async findAll(
+    filters?: {
+      searchParam?: string;
+      location?: string;
+      excludeUserId?: string;
+    },
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResponse<UserDocument>> {
     const query: Record<string, any> = {};
 
     if (filters?.searchParam) {
@@ -156,8 +164,24 @@ export class UsersService {
       ];
     }
 
-    const users = await this.userModel.find(query).exec();
-    return users;
+    if (filters?.excludeUserId) {
+      query._id = { $ne: new Types.ObjectId(filters.excludeUserId) };
+    }
+
+    const limit = pagination?.limit ?? 10;
+    const offset = pagination?.offset ?? 0;
+
+    const [items, total] = await Promise.all([
+      this.userModel.find(query).skip(offset).limit(limit).exec(),
+      this.userModel.countDocuments(query),
+    ]);
+
+    return {
+      items,
+      total,
+      limit,
+      offset,
+    };
   }
 
   async update(

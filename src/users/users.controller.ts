@@ -22,6 +22,8 @@ import { UsersService } from './users.service';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { FollowResponseDto } from './dto/follow-response.dto';
+import { PaginationParams } from '../common/interfaces/pagination.interface';
+import { PaginatedUsersResponseDto } from './dto/paginated-users-response.dto';
 
 interface RequestWithUser extends Request {
   user: { id: string };
@@ -36,7 +38,7 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'List of all users',
-    type: [UserResponseDto],
+    type: PaginatedUsersResponseDto,
   })
   @ApiQuery({
     name: 'searchParam',
@@ -48,6 +50,18 @@ export class UsersController {
     required: false,
     description: 'Filter users by location (case-insensitive)',
   })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of items per page',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    description: 'Number of items to skip',
+    type: Number,
+  })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -55,12 +69,22 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Query('searchParam') searchParam?: string,
     @Query('location') location?: string,
-  ): Promise<UserResponseDto[]> {
-    const filters = { searchParam, location };
-    const users = await this.usersService.findAll(filters);
-    return users
-      .filter((user) => user._id.toString() !== req.user.id)
-      .map((user) => this.usersService.mapUserToResponse(user));
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ): Promise<PaginatedUsersResponseDto> {
+    const currentUserId = req.user.id;
+    const filters = { searchParam, location, excludeUserId: currentUserId };
+    const pagination: PaginationParams = { limit, offset };
+    const result = await this.usersService.findAll(filters, pagination);
+
+    return {
+      items: result.items.map((user) =>
+        this.usersService.mapUserToResponse(user),
+      ),
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset,
+    };
   }
 
   @ApiBearerAuth()
