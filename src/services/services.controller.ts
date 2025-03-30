@@ -9,6 +9,7 @@ import {
   Put,
   Query,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -43,7 +44,7 @@ export class ServicesController {
   })
   create(
     @Body() createServiceDto: CreateServiceDto,
-    @User('userId') userId: string,
+    @User('id') userId: string,
   ) {
     return this.servicesService.create(userId, createServiceDto);
   }
@@ -139,7 +140,7 @@ export class ServicesController {
   @Put(':serviceId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update service' })
+  @ApiOperation({ summary: 'Update service (PUT)' })
   @ApiParam({
     name: 'serviceId',
     description: 'Service unique identifier',
@@ -153,7 +154,29 @@ export class ServicesController {
   update(
     @Param('serviceId') serviceId: string,
     @Body() updateServiceDto: CreateServiceDto,
-    @User('userId') userId: string,
+    @User('id') userId: string,
+  ) {
+    return this.servicesService.update(serviceId, userId, updateServiceDto);
+  }
+
+  @Patch(':serviceId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update service (PATCH)' })
+  @ApiParam({
+    name: 'serviceId',
+    description: 'Service unique identifier',
+    example: 'service_1234567890',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The service has been successfully updated.',
+    type: ServiceResponseDto,
+  })
+  updatePatch(
+    @Param('serviceId') serviceId: string,
+    @Body() updateServiceDto: Partial<CreateServiceDto>,
+    @User('id') userId: string,
   ) {
     return this.servicesService.update(serviceId, userId, updateServiceDto);
   }
@@ -171,10 +194,7 @@ export class ServicesController {
     status: HttpStatus.OK,
     description: 'The service has been successfully deleted.',
   })
-  remove(
-    @Param('serviceId') serviceId: string,
-    @User('userId') userId: string,
-  ) {
+  remove(@Param('serviceId') serviceId: string, @User('id') userId: string) {
     return this.servicesService.remove(serviceId, userId);
   }
 }
