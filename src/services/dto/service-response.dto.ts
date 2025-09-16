@@ -5,11 +5,6 @@ import { WorkingHours } from '../interfaces/working-hours.interface';
 
 export class ServiceResponseDto {
   @ApiProperty({
-    description: 'Service ID',
-  })
-  id: string;
-
-  @ApiProperty({
     description: 'Unique service identifier',
     example: 'service_1234567890',
   })
@@ -116,6 +111,7 @@ export class ServiceResponseDto {
 
   @ApiProperty({
     description: 'Working hours',
+    type: Object,
     example: { from: '09:00', to: '18:00' },
     required: false,
   })

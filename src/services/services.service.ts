@@ -257,7 +257,6 @@ export class ServicesService {
 
   private mapServiceToResponse(service: ServiceDocument): ServiceResponseDto {
     const response: ServiceResponseDto = {
-      id: service._id.toString(),
       serviceId: service.serviceId,
       title: service.title,
       description: service.description,

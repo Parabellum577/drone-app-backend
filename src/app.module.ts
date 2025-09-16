@@ -5,6 +5,7 @@ import { Connection } from 'mongoose';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ServicesModule } from './services/services.module';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ServicesModule } from './services/services.module';
     UsersModule,
     AuthModule,
     ServicesModule,
+    ProductsModule,
   ],
 })
 export class AppModule {}
